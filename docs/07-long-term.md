@@ -183,6 +183,116 @@ were ever coming for it anyway.
 - Tapo C500 signature enforcement; lock status of SigmaStar/Reolink/Xiaomi
   consumer cameras.
 
+## 5. NVR software and detection hardware: who maintains it, what it costs to upgrade
+
+**Safest 10-year NVR stack: Frigate as the recording and detection core on an
+Intel-iGPU x86 box, MediaMTX kept in reserve as the restreamer if go2rtc
+stalls, and Home Assistant only loosely coupled over MQTT.** Frigate is the
+only project in the set with more than one person holding merge rights, a
+legal entity with a revenue product behind it, and a detector abstraction wide
+enough that the software outlives any single accelerator. Its cost is a
+breaking release every 6 to 7 months.
+
+**Safest detection hardware for 5+ years: an Intel iGPU driven by OpenVINO.**
+Eleven years of backward support so far, mainline kernel driver, and the same
+silicon decodes the video.
+
+### Governance
+
+Measurement note: GitHub's contributors endpoint returned 400, so counts come
+from the last 20 to 24 commits per repo and per author (Atom feeds). Treat
+">10 commits/year" as a lower bound.
+
+| Project | Who actually commits (measured) | Entity / funding | Velocity | Bus factor | Verdict |
+|---|---|---|---|---|---|
+| **Frigate** (MIT) | Last 20 dev commits (14–16 Sep 2026): hawkeye217 13, dependabot 6, NickM-27 1. NickM-27: 21 commits in 22 days. hawkeye217 (labelled Collaborator) approves and NickM-27 merges; Blake Blackshear owns the repo and cuts releases (20 commits in 11 months, mostly release merges) **[fetched]**. | **Frigate, Inc.** (was Frigate LLC; "llc to inc" PR merged 2026-01-01). Frigate+ $50/yr. GitHub Sponsors: 104 sponsors. LinkedIn snippets suggest the maintainers have day jobs *[snippet]*, so no evidence Frigate+ funds full-time staff. | Up: 0.16 Aug 2025 → 0.17 Feb 2026 → 0.18 Sep 2026; 0.19 in dev. | **2 to 3** | Best in class for this niche. Single-owner repo and company is the residual risk. |
+| **go2rtc** (MIT) | Last 20 master commits span Feb–Jul 2026: AlexxIT 14, three others. **Last code change 2026-03-17. No release since v1.9.14 (2026-01-19), 8 months. 193 open PRs vs 280 closed**, dozens opened mid-Sep 2026 unmerged. AlexxIT is alive and active elsewhere (18 SonoffLAN commits Sep 2026) and still closes go2rtc issues **[fetched]**. | No entity, no sponsorship statement, no co-maintainer. Fork status not checked. | **Down** in 2026 | **1** | Fine while bundled and pinned inside Frigate. Do not build on it standalone for 10 years. |
+| **MediaMTX** (MIT) | Last 20 commits: dependabot 11, bot 5, aler9 4; aler9 alone: 20 commits in 9 days. Org members: aler9 + a bot **[fetched]**. | No FUNDING.yml, no Sponsors profile, no commercial offering found. | Steady, high (v1.21.0 Sep 2026) | **1** | Excellent code and cadence, zero redundancy. Standard fMP4/TS recordings limit lock-in. |
+| **Viseron** (MIT) | Last 20 commits: roflcoopter 20/20 **[fetched]**. Detector components: darknet, edgetpu, hailo, yolo, codeprojectai, deepstack. **No openvino, onnx or rknn.** | Sponsors + Buy Me a Coffee. | Steady | **1** | On an Intel box it has no iGPU detection path. Not a 10-year primary. |
+| **ZoneMinder** (GPL-2.0) | Last 20 commits: connortechnology 15, SteveGilvarry 3; several carry "Claude Opus 5" co-author trailers **[fetched]**. | No foundation; PayPal, Patreon, Sponsors. | Up in 2026 (1.38.0 Feb 2026 after 1.36.0 in May 2021) | **1 (+1)** | 20+ year project with distro packaging and 5-year support branches, carried by one person. |
+| **Moonfire NVR** (GPL-3) | scottlamb 19/20, bursty **[fetched]**. README: "pre-1.0... configuration and storage formats may change", "Help wanted". | None. | Low | **1** | Not a 10-year bet by its own statement. |
+| **Home Assistant** (Apache-2.0) | Thousands of contributors. | **Open Home Foundation** (Switzerland), ~70 staff in 2026; commercial partners give a majority of licensed-product profit to the foundation *[snippet]*. | Very high | **>10** | Strongest governance, highest churn. Integrate via MQTT so the CCTV core survives HA changes. |
+
+### Upgrade burden
+
+| System | Cadence | What breaks |
+|---|---|---|
+| **Frigate** | One breaking major every **6 to 7 months** (0.13 Jan 2024, 0.14 Aug 2024, 0.15 Feb 2025, 0.16 Aug 2025, 0.17 Feb 2026, 0.18 Sep 2026), 5 to 9 breaking items each, mostly auto-migrated config. | Hardware drops every 1 to 2 releases: ARM 32-bit (0.13), **Intel Neural Compute Stick (0.14)**, standalone TensorRT and ROCm detectors and Jetpack 4/5 (0.16), **GTX 900 (0.17)**, DeGirum (0.18), DeepStack (0.19). 0.14 could not migrate existing events. 0.18 needs kernel ≥6.5 for Intel stats, FFmpeg 8 default, JinaV2 GPU users must reindex. |
+| **ZoneMinder** | ≈2 majors per decade. 1.36 → 1.38: ~79 schema updates applied **automatically**. SECURITY.md: 1.36.x still gets "best-effort security fixes" after **~5 years** (1.36.5 Jun 2021 → 1.36.38 Feb 2026) **[fetched]**. | Some renamed parameters; back up the DB. |
+| **Home Assistant** | Monthly. 2026.9: **8** backward-incompatible entries; 2026.3: **10** **[fetched]**. ≈100 breaking entries per year. | Keep it out of the CCTV critical path. |
+
+Lowest maintenance over 10 years: ZoneMinder < Frigate (≈15 breaking releases
+per decade, plan one careful upgrade per year with a config and DB backup) <
+Home Assistant. Moonfire promises nothing.
+
+### Detection hardware for 5+ years
+
+| Hardware | Kernel driver | Vendor status 2026 | Frigate 0.18 | Verdict |
+|---|---|---|---|---|
+| **Intel iGPU** (Skylake → Core Ultra 3, incl. N100/N150) | mainline i915/xe | OpenVINO 2026.x supports "6th to 14th generation Intel Core", Core Ultra 1/2/3, all HD/UHD/Iris Xe iGPUs **[fetched]**. 4 to 5 releases a year. Policy promises an annual LTS with 2 years of security fixes, but **the last release labelled LTS is 2023.3** **[fetched]**. **2026.3 made AVX2 mandatory for the CPU plugin** (drops SSE-only Gemini/Jasper Lake Celerons for CPU inference). | Official | **Safest.** No vendor kernel, doubles as the video decoder. |
+| Intel NPU (Core Ultra) | mainline `intel_vpu` (Meteor Lake+) **[fetched]** | Firmware, driver and compiler versions must match. Not on N-series. | Official | Good but version-coupled. |
+| **Hailo-8 / 8L** (Pi 5 AI HAT+, M.2) | **Out-of-tree GPL `hailo_pci`; nothing in mainline `drivers/accel`** **[fetched]** | HailoRT MIT, still releasing for Hailo-8 (runtime v4.24.0 Jun 2026, driver 2026-09-15) but **Hailo-8 lives on a maintenance branch**; master is Hailo-10/15 only. Company: valuation halved, SPAC collapsed, ~50% layoffs, then **Microchip signed a definitive agreement to acquire Hailo on 2026-07-24, closing expected by 2026-09-30** *[snippet]*. | Official; downloads HailoRT and a model at first start (needs internet once). | **Acceptable with caveats.** Microchip is a long-lifecycle embedded vendor, which likely helps supply. Software stays vendor-bound with a proprietary compiler. Cache the runtime, buy a spare. |
+| Hailo-10H | separate driver v5.x; HAOS PR still unmerged (firmware 108 MB exceeds partition) | | Not in 0.18 docs | Wait. |
+| **Google Coral** | out-of-tree gasket/apex | Upstream archived. | "no longer recommended" | Avoid for new builds. |
+| **Rockchip RK3588/3576 NPU** | Mainline `rocket` in `drivers/accel` since **Linux 6.18** (RK3588 only; kernel "just powers the hardware on and off", everything else in Mesa Teflon) **[fetched]** | Frigate requires the **vendor BSP kernel 5.10 or 6.1** with `rknpu` ≥0.9.2 and RKNN-Toolkit2; it does not use `rocket`. | Official (`-rk` image) | **Avoid** for a 10-year build: vendor-kernel dependency. |
+| Nvidia dGPU | proprietary/open modules | GTX 900 dropped 0.17 | Official | Works, highest power and cost. |
+| AMD dGPU (ROCm) | mainline amdgpu | ROCm 7.2, RDNA4 | Official | Second tier. |
+| AMD Ryzen AI NPU | mainline `amdxdna` since 6.14 | ONNX Runtime: "Ryzen AI Linux support is not enabled" *[snippet]* | none | Avoid. |
+| MemryX, AXERA, Synaptics, Jetson | vendor SDKs | | "community supported" | Avoid. |
+
+**Does ONNX make hardware swappable?** Partly. Frigate's `onnx` detector
+auto-selects CPU, OpenVINO, CUDA/TensorRT or ROCm, so one YOLO model moves
+between Intel, Nvidia and AMD with a config change. The NPU family (Hailo
+`.hef`, Coral TFLite, RKNN, AXERA, MemryX) each need a vendor compiler.
+
+### NVR host and 10-year running cost
+
+| Host | Longevity signal | Idle / avg watts *[snippet]* | 10-year electricity at **€0.29/kWh** (Eurostat EU average H2 2025) |
+|---|---|---|---|
+| **Intel N100 → N150/N250** mini PC | Twin Lake is a clock-bumped refresh of the same silicon; N150 replaced N100 in 2026 mini PCs. Consumer boxes carry no lifecycle promise (treat as 3 to 5 year disposable with like-for-like always available); industrial boards on the same chips are sold as "10-year long-life". | 9 to 14 W idle; ~15 W avg assumed | **≈€381** (€305–508) |
+| Used ThinkCentre Tiny (8th gen) | Abundant used, standard parts, inside OpenVINO's window, HEVC 10-bit decode, no AV1. | 11 to 14 W idle; ~22 W avg | **≈€559** (€457–762) |
+| Raspberry Pi 5 + Hailo | "until at least January 2036" (product page) vs "January 2038" (longevity article), conflicting snippets. **No H.264 hardware decode**; Frigate users report 50 to 85% CPU decoding H.264 in software. Pi 5 NVR only with H.265 cameras. | ~2.7 W idle; ~8 W avg | **≈€203** (€152–254) |
+
+The Pi's decade of savings (€180 to 350) is roughly the price of the Hailo HAT
+it needs, and it costs H.264 flexibility. The N100-class box is the balanced
+choice. One watt continuous is €25.40 per decade at this rate.
+
+### Data and format longevity
+
+| System | Recordings on disk | Readable without the software? |
+|---|---|---|
+| **Frigate** | ~10 s MP4 segments written without re-encoding, `YYYY-MM-DD/HH/<camera>/MM.SS.mp4` **[fetched]**; SQLite metadata | **Yes.** Concatenate with ffmpeg. Events and review items are Frigate-specific and were not migrated even between 0.13 and 0.14. |
+| **MediaMTX** | fMP4 or MPEG-TS segments, built-in playback server | **Yes.** |
+| **ZoneMinder** | JPEG frames and/or MP4 (passthrough) per event; MySQL | **Yes** for the media files. |
+| **Moonfire** | Raw concatenated samples ("contents of a `mdat` box... not meant to be decoded on their own") + SQLite index **[fetched]** | **No.** Needs the DB to reconstruct MP4. |
+
+**Codecs:** Frigate's presets and go2rtc's codec table cover H.264 and H.265
+only; **no AV1 anywhere** **[fetched]**. Only Axis ARTPEC-9 cameras ship AV1
+today. Record H.264 for maximum compatibility, or H.265 if the host is a Pi 5
+or storage-bound. Ignore AV1 until the NVR side adds presets.
+
+### Fully local, 10 years out
+
+Frigate downloads at first start: HailoRT into `/config/.local`, the Hailo
+default model, the RKNN default model (GitHub), AXERA models (HuggingFace).
+0.19-dev adds "dynamically install and load detector dependencies". An offline
+plan needs the container image, `/config/.local` and model files archived on
+your own disk, or you cannot rebuild the NVR without internet in 2033.
+
+### Not verified (section 5)
+
+- 12-month contributor counts (endpoint failed); only commit rates measured.
+- Frigate, Inc. jurisdiction; whether anyone works on Frigate full time.
+- Frigate 0.13/0.14/0.15 years inferred from version sequence.
+- go2rtc forks not checked; "MediaMTX Pro" not found (site blocked).
+- Hailo deal terms and whether the acquisition closed; Hailo-8 EOL date.
+- Pi 5 production date (2036 vs 2038 conflict).
+- All power figures and the Eurostat price are snippet-only; load averages are
+  assumptions.
+- Intel decode-by-generation table from memory.
+- Whether OpenVINO 2025.x still gets security patches; whether the AVX2
+  requirement affects the GPU plugin on old Celerons.
+
 ## 7. Closed professional cameras: the honest alternative
 
 If longevity of *firmware support* matters more to you than auditability,
@@ -223,7 +333,7 @@ firmware removes.
 - **"Works with Home Assistant"** has one camera partner, Reolink (closed
   firmware, local-capable). There is no "Frigate-certified" programme.
 
-<!-- SECTIONS 5 6 9 PENDING -->
+<!-- SECTIONS 6 9 PENDING -->
 
 ## Not verified this pass (sections 1, 2, 3, 7, 8)
 
