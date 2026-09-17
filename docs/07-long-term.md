@@ -92,6 +92,97 @@ is sold and pushes vendors toward auto-update mechanisms that phone home.
   a device attestation certificate *[inferred]*, so this is a 2028+ option for
   DIY, and only interesting if you want Matter controllers, not Frigate.
 
+## 4. Camera firmware: who maintains it, and what breaks if they stop
+
+Ranking from this pass, for a 5 to 10 year fully local horizon:
+**(1) Thingino on Ingenic T31-class hardware, (2) OpenIPC, (3) buy Rockchip and
+wait for mainline.** The surprise is that the project with the bigger
+organisation and commercial customers ranks second on the things that matter
+for a decade: source availability of every layer you might have to fork,
+userland patch currency, and whether an image can be rebuilt offline.
+
+### Governance
+
+| | OpenIPC | Thingino |
+|---|---|---|
+| Repo | `OpenIPC/firmware`, MIT, 3,452 commits, 2.2k stars, 475 forks | `themactep/thingino-firmware`, MIT, 8,552 commits, 2.1k stars, 310 forks. Personal repo, plus a `thingino` org for tooling. |
+| Commit / merge rights | 24 public org members (founder flyrouter = Igor Zalatov; widgetii = Dmitry Ilyin; cronyx, mikecarr, nekromant, MarioFPVdev...) | ≥3: themactep (owner, Paul Philippov), gtxaspec (collaborator, author of wz_mini_hacks and Raptor), Lu-Fi (merged own PR). |
+| Who actually commits | **Aug–Sep 2024:** viktorxda 10, cronyx 7, flyrouter 4. **Jul–Sep 2025:** viktorxda 11, flyrouter 5. **Aug 2025–Jan 2026: ~29 commits in 5.5 months.** **May 2026 (10 days):** widgetii 27, "claude" co-author 17. **Sep 7–16 2026:** widgetii 24, `openipc-ai` 8. viktorxda's last commit 2026-07-23. | **Sep 2024:** themactep 28/30. **Oct 2025:** 26/28. **Jan–Feb 2026:** 27/28. **May 2026:** themactep 17, gtxaspec 6, Eric 2, m4mmon 1. **Sep 13–16 2026:** gtxaspec 13, themactep ~14, Lu-Fi 5, WLTB-Gino 1. |
+| Velocity trend | Near-dormant late 2025 (~5 commits/month) → 100+/month in 2026, almost all from one maintainer with AI co-authorship (PRs credit "Claude Opus 4.6"; `openipc-ai` org created 2026-08-19; `CLAUDE.md` in repo). | Steady weekly tagged releases (2026-09-10, 09-14, 09-15). The 2026 change: gtxaspec became co-equal and a second tier appeared (wltechblog installers, Lu-Fi, m4mmon, matteius of OpenSensor for the ISP). |
+| Funding / entity | Open Collective (amounts blocked), paid commercial support offered in README, own hardware store (AIO boards for FPV). **Commercial customers: RunCam WiFiLink/WiFiLink 2 and Emax Wyvern Link ship OpenIPC.** No legal entity identified. | GitHub Sponsors only: themactep 2 current / 14 past; gtxaspec 1 current / 8 past. No entity, no paid support, no factory product. Contributions page asks for hardware donations. |
+| Roadmap | Published, **entirely FPV hardware** (Thinker, Bonnet, Goggles, Evolution AIO). No CCTV, kernel or security items. | None published. Branch policy instead: `ciao` stable, `master` experimental (Raptor, mainline U-Boot, "UART access highly recommended"). |
+| Security policy | No SECURITY.md. One advisory: GHSA-fjf7-9x3v-6mj6, High, 2026-09-06, sysupgrade fetched firmware without TLS certificate verification. | No SECURITY.md, no advisories. Fixes appear in release notes (2026-09-14: API key bypass for loopback fixed, RTSP Digest auth added). FAQ: "does not collect any data, metrics, or telemetry". |
+| Userland currency | **Buildroot pinned to 2024.02.10** with no download verification; overrides **dropbear 2022.82** and **mbedTLS 2.25.0** with no patches. | **Buildroot 2026.08** (release 2026-09-10); own mbedTLS/OpenSSL packages. |
+| Update mechanism | `sysupgrade` from GitHub releases or an openipc.github.io manifest, **md5 only, no signature**; U-Boot boot-count failsafe added Sep 2026; no rollback. | `sysupgrade` self-updates from the GitHub `stable` branch then flashes; no rollback documented; wiki does not describe verification. |
+| **Bus factor verdict** | Org is broad, but firmware work is effectively **bus factor 1 (widgetii)** plus the founder at low volume. The 2024–25 core (viktorxda, cronyx) has receded. Majestic's developers are not publicly identifiable, so the closed streamer is a **second single point of failure**. | **Bus factor 2** (was 1 until 2026). No divergent forks found. |
+
+Neither project documents VLAN isolation. Neither signs images. Both run update
+scripts fetched from GitHub as root. Vendor kernels (3.10.14, 4.4.94, 4.9.x)
+receive no upstream CVE fixes in either project.
+
+### Kernel and blob trajectory per SoC
+
+| SoC | Kernel today | Mainline (torvalds/master, 2026-09-17) | Blobs | 5-year outlook |
+|---|---|---|---|---|
+| **Ingenic T31** | 3.10.14 vendor in both projects. Thingino tree also carries `t31.generic.config` for **6.11 and 7.1-rc1** (experimental, dev-only?). | No T-series in `arch/mips/boot/dts/ingenic`. Ingenic-community/linux explicitly excludes T-series ("controlled by a subsidiary with different policies"). But **open-tx-isp is "compatibility-tested on mainline Linux 7.1"** **[fetched]**. | ISP: open-tx-isp (GPL-3) replaces tx-isp.ko, "near-OEM daylight parity", gaps in night/IR, WDR. Userland: OpenIMP replaces libimp. Still proprietary: libalog, libsysutils, audio processing, OEM tuning tables, `*.o_shipped` encoder/audio objects in thingino/ingenic-sdk. In Thingino's build it is opt-in and wired only to the vendor kernels. **All 34 recent open-tx-isp commits by one developer (matteius, OpenSensor Engineering LLC, Maine). 19 stars.** | **Most credible blob-light, mainline-kernel path of any camera SoC.** Hinges on one developer and on a hardware generation no longer sold new in flashable form. |
+| Ingenic T40 / T41 | 4.4.94 vendor | None | open-tx-isp device-tested on T40/T41; OpenIMP T41 in bring-up. | Irrelevant for consumers: secure boot on "all the newer Ingenic based devices". |
+| **HiSilicon Hi3516EV300** | OpenIPC `lite`: 4.9.37. OpenIPC **`neo`: Linux 7.0** + OpenHisilicon SDK **[fetched]**. | No hi3516* in mainline dts. OpenIPC's `upstream-patches` branch holds DT/CRG/mach patches "intended for mainline"; no LKML submission found. | OpenHisilicon: GPL-3 modules, but README admits "the source code for most of these modules is not provided": it **relinks vendor `.o` blobs** via an OSAL layer. ISP 3A libraries, sensor libs and firmware stay proprietary. Neo 6.6: "boots to login... majestic" in QEMU (Apr 2026); 7.0-rc6: "Real hardware: pending". README table says "Production". | **Best modern-kernel story of any CCTV SoC, worst blob story.** Entirely dependent on widgetii. Hardware abundant and cheap. |
+| Goke GK7205V200/V300 | 4.9.37, actively patched Sep 2026 (pstore, failsafe rescue) | None | Same as HiSilicon V4. No neo build seen. | Follows EV300; no independent path. |
+| **SigmaStar SSC33x (Infinity6/6E)** | 4.9.84 vendor | `arch/arm/boot/dts/sigmastar` has infinity, infinity2m, infinity3, mercury5. **No infinity6.** | Vendor MI/ISP blobs; no open reimplementation. Majestic-dependent. | **Static: works, unpatchable kernel, no visible path.** Positive: the IPL boots a custom U-Boot from SD, so the hardware is not locked. |
+| **Rockchip RV1106 / RV1103** | OpenIPC 5.10.160 vendor (merged Sep 2026, Luckfox Pico Max) | **RV1103B dts merged 2026-03-24** (Onion Omega4). RV1106/RV1103 + Luckfox Pico Mini B series by Simon Glass: v1 2026-07-06, v2 07-14, v3 07-29 (clocks, GRF, UART, SD, SPI-NOR, GPIO, pinctrl, USB2 PHY). Not in master as of 2026-08-02; merge status unverified *[snippet]*. | OpenIPC installs **prebuilt `rockchip-osdrv-rv11xx` libs and 5.10 kmods** (package has empty SITE/VERSION, license mislabelled MIT). Mainline `rkisp2` (RK3588 ISP 3.0, v3 Aug 2026) does not mention RV1106's ISP32. **No mainline H.264 encoder driver**: Hantro H1 stateless uAPI still RFC since 2023. | **Platform in mainline within 1 to 2 years; camera pipeline not** without a Collabora-scale effort nobody has announced. A dev-board bet, not a camera bet. |
+
+### Secure boot and supply
+
+- gtxaspec, 2025-01-29: secure boot "introduced with the Pan V3, and found on
+  the Roku variants, as well as all the newer ingenic based devices... No known
+  workarounds since they validate the bootloader signature" **[fetched]**.
+  2025-07-03: Wyze v4 (T41) needs a hot-air SoC swap.
+- **Tapo C500 (T23):** units with a bootloader dated 2026-01-06 no longer offer
+  the autoboot prompt (Sep 2024 units were interruptible). Issue open
+  2026-09-12, no maintainer reply. Whether it is signature-enforced is not
+  established. Treat as the leading edge of the lock-down spreading to T23.
+- **SigmaStar is not locked** (IPL boots custom U-Boot from SD). Xiongmai has
+  had a bootloader password since ~2021, bypassable by downgrade.
+- **Wyze Cam v3 conflict:** the product page says "no longer available and
+  won't be coming back" *[snippet]* while Wyze's support page was updated
+  Mar 2026 and firmware betas continued through Sep 2026. Read it as: firmware
+  still maintained, new retail supply ended, four different SoC/WiFi
+  combinations exist in the wild. Buy remaining or secondhand stock
+  deliberately.
+- Nothing ships Thingino from the factory. OpenIPC ships from the factory only
+  in FPV products and its own AIO boards. OpenIPC's board-manufacturer wiki
+  lists ~50 vendors with no compatibility notes.
+
+### Exit cost
+
+| If this dies | Deployed cameras | Rebuilding images | NVR side |
+|---|---|---|---|
+| **OpenIPC** | Keep running (no licence server found; not verified). | **Majestic is fetched at build time from `openipc.s3-eu-west-1.amazonaws.com` as an unversioned tarball, `LICENSE = PROPRIETARY`, no hash** **[fetched]**. If the bucket disappears, nobody can rebuild an image with Majestic. Mitigations: 480 prebuilt assets in the `latest` release, a self-hosted mirror at git.openipc.ru *[snippet]*, and Divinus (MIT, 616 commits) for RTSP/fMP4/JPEG/audio/OSD but **no ONVIF write, PTZ or motion detection**. | Unaffected: RTSP + ONVIF via `onvif-simple-server`. |
+| **Thingino** | Keep running. | **A git clone rebuilds offline indefinitely**: all code GPL/MIT, Ingenic blobs redistributed inside the tree, vendor kernels in project forks. | Unaffected: RTSP + `thingino-onvif`. |
+| Migration OpenIPC → Thingino (same Ingenic SoC) | Documented: flash gtxaspec `u-boot-ingenic` to mtd0, wipe env, `autoupdate-full.bin`. "Overwrites everything in the flash chip." | | Reverse direction undocumented. Different U-Boot, env and partition layouts; not hot-swappable. |
+
+**Practical hedge:** choose NOR-flash Ingenic T31 cameras that both projects
+support, keep every camera on an isolated VLAN (neither project will do that
+for you), and let the NVR depend only on RTSP and ONVIF so a dead firmware
+project leaves you with frozen appliances rather than bricks. On a VLAN a
+frozen HiSilicon or SigmaStar camera is tolerable, because no kernel patches
+were ever coming for it anyway.
+
+### Not verified (section 4)
+
+- Open Collective totals for OpenIPC; Telegram community sizes (3,120 FPV
+  members is a telemetr.io snippet).
+- Merge status of the RV1106/RV1103 kernel series after v3 (2026-07-29).
+- Whether rkisp2 will cover RV1106's ISP32; 2026 status of Hantro/VEPU encoder
+  drivers.
+- Real-hardware video on OpenIPC `hi3516ev300_neo` 7.0 after April 2026.
+- Whether a T31 Thingino image can be built with zero Ingenic objects; whether
+  the 6.11/7.1 configs are user-selectable.
+- Thingino sysupgrade verification details; Majestic phone-home or licence
+  behaviour; Buildroot 2024.02 EOL date.
+- Tapo C500 signature enforcement; lock status of SigmaStar/Reolink/Xiaomi
+  consumer cameras.
+
 ## 7. Closed professional cameras: the honest alternative
 
 If longevity of *firmware support* matters more to you than auditability,
@@ -132,7 +223,7 @@ firmware removes.
 - **"Works with Home Assistant"** has one camera partner, Reolink (closed
   firmware, local-capable). There is no "Frigate-certified" programme.
 
-<!-- SECTIONS 4 5 6 9 PENDING -->
+<!-- SECTIONS 5 6 9 PENDING -->
 
 ## Not verified this pass (sections 1, 2, 3, 7, 8)
 
