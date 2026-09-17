@@ -3,7 +3,7 @@
 > **Branch note.** This repository used to hold a throwaway test page for a dead
 > tooling experiment. That content was removed on this branch, which is a
 > temporary home for research into a fully local CCTV system built from open
-> firmware and open hardware. Research date: **2026-09-16**.
+> firmware and open hardware. First pass 2026-09-16; long-term pass 2026-09-17.
 
 ## The questions, answered
 
@@ -35,7 +35,7 @@ config in [docs/04-nvr-software.md](docs/04-nvr-software.md).
 
 | Layer | Pick | Why |
 |---|---|---|
-| **Wired cameras with night vision** | Generic Hi3516EV300 / GK7205V300 + IMX307 **PoE bullet** from AliExpress, reflashed to **OpenIPC** | Only route to PoE + open firmware + real IR-cut and IR LEDs. Needs a UART adapter and reading the SoC marking before buying. |
+| **Wired cameras with night vision** | Generic **SigmaStar SSC338Q/SSC30KQ** (preferred for supply) or Hi3516EV300 / GK7205V300 + IMX307 **PoE bullet** from AliExpress, reflashed to **OpenIPC** | Only route to PoE + open firmware + real IR-cut and IR LEDs. Needs a UART adapter and reading the SoC marking before buying. SigmaStar: not sanctioned, 37% market share, ships OpenIPC from the factory in FPV products; OpenIPC tier is "MVP", verify the exact SoC. |
 | **Cheap indoor / WiFi cameras** | **Wyze Cam v3** (T31 revision, not v4/Pan v3) on **Thingino** | $20–36, SD-card install, no soldering, IR-cut + IR LEDs controlled by open firmware. WiFi only, so isolated SSID. |
 | **DIY wired node** | **Luckfox Pico Ultra** (RV1106, PoE) on OpenIPC, or **Pi 4 / Zero 2 W** + Arducam IR-cut module on MediaMTX | Luckfox: hardware H.264, PoE, OpenIPC support merged 2026-09-07, but no IR module sold yet. Pi: best docs, but costs more than a commercial camera and **Pi 5 has no hardware H.264 encoder**. |
 | **Spyware-proof by construction** | **USB UVC camera with IR** (ELP) on the NVR or a Pi | No CPU, no network stack, cannot phone home. Limited by USB cable length. |
@@ -47,6 +47,42 @@ config in [docs/04-nvr-software.md](docs/04-nvr-software.md).
 **Do not buy:** Google Coral (upstream archived, de-recommended by Frigate),
 Wyze Cam v4 / Pan v3 / OG (secure boot, not flashable), Raspberry Pi 5 as a
 camera node, anything advertised with "view from anywhere via QR code".
+
+## What is better long term (5 to 10 years)
+
+Second research pass, full detail in [docs/07-long-term.md](docs/07-long-term.md).
+The two things you want, auditable firmware and 10-year supply, do not live
+on the same camera today. So the long-term design is to **separate the durable
+core from the consumable edge**:
+
+- **Durable core, build it first:** Frigate on an Intel-iGPU x86 box, camera
+  VLAN with no WAN route, WireGuard on your own router. Best governance in the
+  stack (Frigate, Inc., three people with merge rights), OpenVINO on Intel has
+  eleven years of backward support with no vendor kernel, recordings are plain
+  MP4, and RTSP + ONVIF Profile T will outlive every camera. One Frigate
+  upgrade a year. Keep MediaMTX in reserve: go2rtc is one person and has had no
+  code change since March 2026. Archive images and model files locally.
+- **Consumable edge, 3-to-5-year cycle, chosen by exit cost:**
+
+  | Rank | Route | Horizon |
+  |---|---|---|
+  | 1 | **Pi 4 / CM4 + switchable IR-cut module + MediaMTX** for the positions that matter. Only DIY route with no blob you cannot rebuild (libcamera's Pi ISP algorithms are BSD-2). In production until **January 2034**. Most labour, ~€145 and 4 W per node. | 10 years |
+  | 2 | **OpenIPC on SigmaStar PoE bullets** (Goke/HiSilicon if that is what you can get) for the rest. Frozen 4.9 kernel and blobs, tolerable on a no-WAN VLAN. SigmaStar over HiSilicon on supply grounds. Mirror the release assets: Majestic is a binary fetched from S3 without a hash. | 5 years per model |
+  | 3 | **USB UVC IR camera** on the NVR for the one or two positions within 5 m. Nothing to patch, nothing to exit from. | 10 years |
+  | 4 | **Thingino on Wyze Cam v3** for cheap indoor cameras. Best firmware, closing hardware supply (v4 is fused, Wyze no longer sells v3). Buy spares now. | 3 to 5 years |
+  | 5 | **Luckfox Pico Ultra** as a tinkering node. Vendor kernel 5.10 (LTS ends Dec 2026), 4-to-5-year Rockchip chip cycle, no IR-cut module. | 5 years |
+  | 6 | **ESP32-P4.** Hardware encoder is now open source and PoE boards exist, but the only active firmware is a one-person WiFi-only beta. | Re-evaluate 2028 |
+  | 7 | **Axis / Hanwha closed cameras** on the VLAN, only if five years of vendor patches after discontinuation matters more than auditability. Three times the price, lowest labour. | 10 years, closed |
+
+- **The 10-year bill for six cameras** (labour excluded, €0.30/kWh, estimates):
+  Thingino WiFi ≈ €870, Luckfox ≈ €1,160, USB ≈ €1,250, OpenIPC bullets ≈
+  €1,330, Pi 4 nodes ≈ €2,130, Axis ≈ €4,120. At €30/h of your time, Pi and
+  Axis converge and OpenIPC bullets stay cheapest.
+- **Regulation does not stop you anywhere**, but it reshapes the shelf: FCC
+  ban on new Hikvision/Dahua imports effective 2026-07-16; EU Cyber Resilience
+  Act makes security cameras "important products" from 2027-12-11 with a
+  5-year update duty that pushes vendors toward auto-update mechanisms; wired
+  PoE-only cameras sit outside the EU RED radio rules.
 
 ## What "no cloud" has to mean
 
@@ -67,6 +103,7 @@ nothing but NVR and NTP traffic). See
 | [docs/04-nvr-software.md](docs/04-nvr-software.md) | 18 NVR/streaming projects, exact licenses, what phones home, detection hardware, three reference stacks |
 | [docs/05-diy-camera-hardware.md](docs/05-diy-camera-hardware.md) | Raspberry Pi (Pi 5 no HW encode), Luckfox RV1106, Milk-V, Sipeed, USB IR cameras |
 | [docs/06-network-isolation.md](docs/06-network-isolation.md) | VLAN pattern, OpenWrt/OPNsense/UniFi rules, WireGuard/Headscale/NetBird, leak tests |
+| [docs/07-long-term.md](docs/07-long-term.md) | **Second pass.** Production-until dates, regulation, standards, firmware and NVR governance with measured bus factors, detection hardware longevity, DIY routes with a 10-year cost table, ranked verdict |
 
 ## Project status index (alive / dead, as of 2026-09-16)
 
@@ -74,7 +111,8 @@ nothing but NVR and NTP traffic). See
 Viseron, ZoneMinder, Moonfire NVR, s60sc/ESP32-CAM_MJPEG2SD, ESPHome
 esp32_camera, Tasmota32 webcam, rzeldent/esp32cam-rtsp, Headscale, NetBird.
 
-**Alive but caveated:** OpenIPC Majestic (proprietary binary), Shinobi (non-OSI
+**Alive but caveated:** go2rtc (one person, no code change since Mar 2026, fine
+while pinned inside Frigate), OpenIPC Majestic (proprietary binary), Shinobi (non-OSI
 licence), Scrypted (NVR plugin paid/closed), Kerberos Agent (phones home unless
 `AGENT_OFFLINE=true`), yi-hack-Allwinner-v2 and sonoff-hack (SD overlays that
 leave the vendor cloud firmware in place), Raptor/prudynt (need Ingenic blobs),
@@ -103,7 +141,7 @@ cameras with WiFi radios and vendor firmware do not belong on your network.
 
 ## Research limits
 
-Four parallel researchers worked from GitHub repos, LICENSE files, release
+Eight parallel researchers across two passes worked from GitHub repos, LICENSE files, release
 feeds, issues and official docs-as-source. Vendor sites (openipc.org,
 thingino.com, raspberrypi.com, arducam.com, espressif.com, coral.ai, all
 retailers) and most forums were egress-blocked, so **every price is an

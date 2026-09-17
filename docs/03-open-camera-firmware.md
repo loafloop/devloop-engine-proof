@@ -70,7 +70,7 @@ below is an approximate historical range and **must be checked before buying**.
 
 | Model | SoC | Firmware | Night vision | Network | ~Price | Notes |
 |---|---|---|---|---|---|---|
-| **Wyze Cam v3** | Ingenic T31X or T31AL + GC2053 | Thingino, SD installer, revertible | Yes: IR LEDs + IR-cut, Thingino controls both | WiFi only | $20–36 | The reference cheap pick. Two hardware variants (WiFi chip ATBM6031 vs RTL8189FTV), both supported. USB-Ethernet/PoE-to-USB adapters listed in Thingino accessories for power. |
+| **Wyze Cam v3** | Ingenic T31X or T31AL + GC2053 | Thingino, SD installer, revertible | Yes: IR LEDs + IR-cut, Thingino controls both | WiFi only | $20–36 | The reference cheap pick. **Long-term pass: Wyze's product page says "no longer available and won't be coming back"; firmware still updated. Buy remaining or secondhand stock, plus spares.** Two hardware variants (WiFi chip ATBM6031 vs RTL8189FTV), both supported. USB-Ethernet/PoE-to-USB adapters listed in Thingino accessories for power. |
 | Wyze Cam Pan v2 | T31X | Thingino | Yes | WiFi | $40–50 | Pan-tilt. May be discontinued. |
 | Wyze Cam Floodlight v1, Doorbell v1/v2 | T31X/T31AL, T30X | Thingino | Yes (doorbell IR-cut unverified) | WiFi | – | |
 | **Wyze Cam v4 / Pan v3 / OG** | T41 / T31 secure-boot | **Not supported** | – | – | – | Wyze burns secure-boot e-fuses on newer models. Pan v3 needs a physical SoC swap. "All the newer Ingenic based devices" validate the bootloader signature. **Buy older T31 stock.** |
@@ -140,6 +140,9 @@ below is an approximate historical range and **must be checked before buying**.
 - Secure boot: Wyze Pan v3, Cam v4 and Roku variants validate the bootloader
   signature (discussions 470, 764). Expect this to spread across new Ingenic
   consumer cameras. Buy known-older stock or verify the exact revision.
+  **Long-term pass:** Tapo C500 (T23) units with a bootloader dated 2026-01-06
+  no longer offer the autoboot prompt (Thingino issue 1641, open). The
+  lock-down is reaching T23. See `07-long-term.md`, section 4.
 
 ## Not verified this round
 

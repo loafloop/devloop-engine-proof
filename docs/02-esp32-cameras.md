@@ -123,6 +123,10 @@ Assistant. Everything else is a library or a demo.
   format encoding is needed when implementing rtsp/rtmp streaming"
   ([esp-faq](https://github.com/espressif/esp-faq/blob/master/docs/en/application-solution/camera-application.rst)).
   Their software H.264 for S3 does 17 fps at 320x192. Unusable.
+  **Correction from the long-term pass:** the P4 *hardware* encoder path in
+  [esp-h264-component](https://github.com/espressif/esp-h264-component) is C
+  source under Apache-2.0. The ISP algorithms (`esp_ipa`) remain prebuilt
+  binaries. See `07-long-term.md`, section 6.
 - Frigate docs: MJPEG cameras "require encoding the video into h264 for
   recording and restream roles... This will use significantly more CPU"
   ([camera_specific.md](https://github.com/blakeblackshear/frigate/blob/dev/docs/docs/configuration/camera_specific.md)).

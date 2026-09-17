@@ -8,7 +8,57 @@ exit if a project dies. Evidence tags: **[fetched]** page read directly;
 Most vendor and government sites were blocked from the research sandbox this
 pass, so a lot rests on snippets. Every section ends with what was not verified.
 
-<!-- VERDICT -->
+## Verdict: separate the durable core from the consumable edge
+
+The two things you want, **auditable firmware** and **10-year supply**, do not
+live on the same camera today. The most open camera software (Thingino) runs on
+a hardware generation whose supply is ending. The most durable open camera node
+(Raspberry Pi 4) costs the most labour. The cheapest wired open route (OpenIPC
+bullets) has the weakest software governance and permanent vendor blobs. The
+best-supported firmware (Axis) is closed. So the long-term design is not "pick
+the best camera". It is:
+
+1. **Make the NVR and the network the durable core, and build it first.**
+   Frigate on an Intel-iGPU x86 box, a camera VLAN with no WAN route, WireGuard
+   on your own router. This layer has the best governance in the whole stack
+   (Frigate, Inc., three people with merge rights; Open Home Foundation behind
+   Home Assistant), the widest hardware abstraction (OpenVINO on an Intel iGPU
+   has eleven years of backward support and needs no vendor kernel), standard
+   recordings (plain MP4 segments readable without the software), and an
+   interface to cameras, RTSP + ONVIF Profile T, that will outlive every camera
+   you buy. Budget one careful Frigate upgrade a year. Archive the container
+   image and Frigate's first-start downloads on your own disk. Keep MediaMTX in
+   reserve as the restreamer, because go2rtc is one person and has had no code
+   change since March 2026.
+
+2. **Treat cameras as consumables on a 3-to-5-year cycle and choose them by
+   exit cost, not by longevity.** Any camera that speaks RTSP/ONVIF and cannot
+   phone home is replaceable without touching the core. Under that lens, ranked
+   for your stated priority (no manufacturer code path to a cloud):
+
+   | Rank | Camera route | Why | Horizon |
+   |---|---|---|---|
+   | 1 | **Raspberry Pi 4 (or CM4) + switchable IR-cut module + MediaMTX**, for the positions that matter most | The only DIY route where nothing is a blob you cannot rebuild: libcamera's Pi ISP algorithms are BSD-2, MediaMTX and Debian are funded and active, and the board is in production until **January 2034**. Costs ~€145 and 4 W per node plus the most labour; use read-only root; buy spare IR-cut modules. | **10 years** |
+   | 2 | **OpenIPC on SigmaStar (SSC338Q/SSC30KQ) PoE bullets**, for the rest of the outdoor positions; Goke/HiSilicon if that is what you can get | Cheapest weatherproof, IR-cut, PoE route with an open userland. Accept a frozen 4.9 kernel and ISP blobs; on a no-WAN VLAN that is tolerable because no patches were ever coming. **SigmaStar over HiSilicon on supply grounds**: 37% market share, not sanctioned, already ships OpenIPC from the factory in FPV products. Mirror the OpenIPC release assets locally; Majestic is a binary fetched from S3 without a hash. Expect to re-qualify a model every 2 to 3 years. | **5 years per model** |
+   | 3 | **USB UVC IR camera on the NVR** for the one or two positions within 5 m of it | No firmware, no network stack, no maintenance. Nothing to exit from. | 10 years |
+   | 4 | **Thingino on Wyze Cam v3** (T31 revision) for cheap indoor cameras | Best firmware openness and patch currency of any camera route, but the flashable hardware supply is closing (v4 is fused; the Tapo C500 bootloader stopped being interruptible in Jan 2026). Buy the units you want now, plus spares. | **3 to 5 years** |
+   | 5 | **Luckfox Pico Ultra** as a tinkering node | Cheapest PoE node with hardware H.264, but vendor kernel 5.10 (LTS ends Dec 2026) with blobs, a 4-to-5-year Rockchip chip cycle, and no IR-cut module. | 5 years |
+   | 6 | **ESP32-P4** | Hardware encoder is now open source and PoE boards exist, but the only active firmware is a one-person beta, WiFi-only, still finishing RTP packetisation. | **Re-evaluate 2028** |
+   | 7 | **Axis or Hanwha closed cameras on the VLAN** | Only if you decide that five years of vendor patches after discontinuation is worth more to you than auditability. Three times the price, lowest labour, and it fails the "unable, not configured" test in `01-threat-model.md`. | 10 years, closed |
+
+3. **The 10-year bill for six cameras** (labour excluded, €0.30/kWh, estimates):
+   Thingino WiFi ≈ €870, Luckfox ≈ €1,160, USB ≈ €1,250, OpenIPC bullets ≈
+   €1,330, Pi 4 nodes ≈ €2,130, Axis ≈ €4,120. At €30/h of your time the Pi
+   and Axis routes converge (≈€5,700 vs ≈€5,000) and OpenIPC bullets stay
+   cheapest at ≈€3,700. Your hourly rate, not the hardware, decides between
+   Pi and Axis.
+
+4. **What to do now:** buy the NVR box and switch first, put every camera you
+   already own on the isolated VLAN, then add one Pi 4 node at the position
+   that matters most and OpenIPC SigmaStar bullets elsewhere. Keep local
+   mirrors of every firmware image, tree and model file. Put "check ESP32-P4
+   and Rockchip mainline" in the calendar for 2028.
+
 
 ## 1. Hardware supply: who commits to still making it
 
@@ -293,6 +343,179 @@ your own disk, or you cannot rebuild the NVR without internet in 2033.
 - Whether OpenVINO 2025.x still gets security patches; whether the AVX2
   requirement affects the GPU plugin on old Celerons.
 
+## 6. DIY camera routes and the 10-year bill
+
+Six cameras, ten years, **€0.30/kWh** (1 W continuous = €26.28 per decade),
+dollars treated as euros for totals. Hardware lifespans and maintenance hours
+are **estimates** with the reasoning stated in the per-route notes. Prices are
+snippets or estimates.
+
+### Ranking for 10-year viability
+
+| Rank | Route | Initial (6 cams + switch) | Life and main failure modes | Replaceable in 2031? | Maint. h/yr | Patchability | Exit cost if firmware dies | 10-yr power | **10-yr total, labour excluded** |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | **Axis-class closed cameras on a VLAN** | ≈$2,790 | 8 to 12 y; IR LEDs, capacitors; industrial sealing | Excellent: AXIS OS ≥5 y after discontinuation, LTS tracks ~5 y | ~3 | Best cadence; **must block phone-home at the firewall** | Low: ONVIF/RTSP keep working offline | 33.6 W → €883 | **≈€4,120** |
+| 2 | **Pi 4 + Arducam IR-cut + MediaMTX** | ≈$955 ($45 Pi 4 2 GB + €40 Arducam + $22 PoE HAT + $10 SD + $25 enclosure per node, + $90 switch) | Board 8 to 10 y; **SD 1 to 3 y unless read-only root**; IR-cut solenoid and LEDs 3 to 5 y; DIY enclosure ingress; ribbon connector wear | **Excellent: Pi 4 to 2034-01-01, Zero 2 W to 2030, Pi 5 to 2036** **[fetched, endoflife.date data]**; OV5647 ubiquitous | ~12 (apt and kernel ×6, MediaMTX, SD swaps, occasional libcamera breakage) | **Best of DIY**: Debian security (Trixie to 2028, LTS 2030), Pi kernel fork, MediaMTX all funded and active | Low: any Linux stack works | 33.6 W → €883 | **≈€2,130** |
+| 3 | **USB UVC IR cameras on the NVR** | ≈$710 ($55 ELP H.264 IR + $40 extender + $20 enclosure per cam) | 5 to 8 y; IR LEDs, bare-PCB corrosion, extender power sag, connector wear | Good: UVC is generic; but **H.264-over-UVC models vanish silently** (Logitech dropped it from C920/C922 in late 2018 units) | ~3 | Nothing on the camera to patch | **None**: UVC works with any host forever | 15 W → €394 | ≈€1,250 |
+| 4 | **OpenIPC on Goke/HiSilicon/SigmaStar PoE bullets** | ≈$330 | 5 to 8 y; IR LED dimming (L70 at 20 to 30k h), gasket ingress, LED-driver electrolytics, **PoE gear in hot outdoor boxes fails** | Model churn high; HiSilicon exited (60% → <4% share); Goke/SigmaStar/Ingenic clones plentiful but **need re-qualification every 2 to 3 years** | ~8 | Userland patched; **kernel 3.10/4.4 + ISP blobs never patched; Majestic closed** | Medium: cameras keep streaming on last firmware; VLAN-isolate | 33.6 W → €883 | **≈€1,330** |
+| 5 | **Luckfox Pico Ultra (RV1106) + PoE + SC3336** | ≈$515 | Unknown (product since 2024); eMMC avoids SD wear; **no IR-cut → night colour cast without an add-on** | Uncertain: Luckfox founded 2020; RV1106 mainstream in Chinese IPCs, so other boards likely | ~10 | Vendor **5.10.160 (LTS EOL 2026-12-31)** + rockit/rkaiq/mpp blobs; userland patchable | Medium: stock rkipc RTSP still runs; blobs tie you to 5.10 forever | 16.4 W → €431 | ≈€1,160 |
+| 6 | **Thingino on Wyze v3 (WiFi)** | ≈$240 | 3 to 5 y; **SD-card destruction widely reported**, IR-LED aging, WiFi dropouts, indoor plastics outdoors | **Poor**: v4 is T41 with secure boot; other T31/T23 cameras likely still exist | ~8 | Good userland (Thingino active); kernel 3.10 blobs never patched | Medium: revert to vendor firmware = cloud-only, or bin them | 15 W → €394 | ≈€870 (one replacement cycle at year 5) |
+| 7 | **ESP32-P4 nodes (when ready)** | ≈$505 | MCU boards 10 y+; no SD; IR LEDs; PoE module | Good chip-wise (Espressif ≥12 y); Waveshare/Olimex stable | ~15 until firmware matures (rebase to a supported ESP-IDF every 30 months) | Small surface; no mature ONVIF auth; IDF fixes only on supported branches | **High today**: no second firmware to fall back to | 17.7 W → €465 | ≈€1,100, **not deliverable in 2026** |
+
+**Labour sensitivity** (estimate at €30/h): adds ≈ Axis €900, USB €900,
+Thingino €2,400, OpenIPC €2,400, Luckfox €3,000, Pi €3,600, ESP32-P4 €4,500.
+With labour, Pi ≈ €5,700 vs Axis ≈ €5,000 vs OpenIPC bullets ≈ €3,700 vs USB
+≈ €2,150 (but USB cannot cover six outdoor positions). At €0/h the Pi route
+costs about half of Axis. Your hourly rate decides between rows 1 and 2.
+
+### Raspberry Pi, 10-year view
+
+- **Mainline status is split by generation.** Pi 5's camera path is fully
+  upstream: `rp1-cfe` (v6.13) and `pisp_be` (v6.11) in
+  `drivers/media/platform/raspberrypi` **[fetched]**. Pi 4 / Zero 2 W: the
+  CSI-2 receiver `bcm2835-unicam` is mainline (v6.10), but the **ISP and the
+  H.264 encoder are only in the Pi kernel fork** (`bcm2835-codec`,
+  `bcm2835-isp`, `vchiq-mmal` in the fork's vc04_services; mainline has only
+  `bcm2835-audio`) **[fetched]**. A Pi 4 node with hardware encode depends on
+  the Pi fork for its whole life. Mitigation: Pi has kept a 2012 board booting
+  the 2025 OS.
+- **The camera algorithms are open.** Upstream libcamera carries both Pi
+  pipeline handlers and the **BSD-2-Clause IPA** (`src/ipa/rpi/{vc4,pisp}`)
+  **[fetched]**. Every other route in this document runs ISP tuning as a vendor
+  blob. This is the Pi route's unique long-term property.
+- **Production dates** **[fetched from endoflife.date data file]**: Pi 4 B
+  2034-01-01, Pi 5 2036-01-01, Zero 2 W 2030-01-01, CM4 2034-01-01, CM5
+  2036-01-01. Camera Module 3 to Jan 2030 *[snippet]*.
+- **OS support:** Pi OS tracks Debian. Bookworm security to 2026-07-11, LTS to
+  2028-06-30; Trixie security to 2028-08-09, LTS to 2030-06-30 **[fetched]**.
+  Trixie still supports Pi 1 to Pi 5. After a new release, old releases get
+  critical kernel fixes only, and in-place upgrades are unsupported
+  *[snippet]*: plan a reflash per node every 2 to 3 years.
+- **Pi 5 software encode:** official docs say it "will still easily achieve
+  1080p30" **[fetched]**; estimate 0.5 to 1 of 4 cores at 1080p25 and +1 to
+  1.5 W. MediaMTX's rpicamera bundle has both `encoder_hardware_h264.c` and
+  `encoder_software_h264.cpp` (openh264) **[fetched]**. MediaMTX bundles its
+  own libcamera and is "not compatible with cameras that require a custom
+  libcamera": fine for OV5647/IMX708, a problem for Arducam sensors that need
+  Arducam's fork.
+- **Successor with hardware encode:** Eben Upton at Pi 5 launch: "hardware
+  encode is a mm² too far... In future we'll have to do something" *[snippet]*.
+  Nothing further found. Not verified.
+- **No official IR-cut camera.** Third-party only: Waveshare RPi IR-CUT
+  (OV5647, LDR-automatic or GPIO versions), Waveshare IMX462 IR-CUT, Arducam
+  B0151 OV5647 motorised IR-cut (€39.90, listed for Pi 5/4/3) *[snippets]*.
+  Buy one spare per two nodes; the solenoid and LEDs are the weakest link.
+- **SD wear:** continuous writes "will wear them out quickly, potentially
+  causing corruption after a few months" *[snippet]*. Use overlayfs /
+  read-only root via raspi-config, or USB/eMMC boot. Do not record locally on
+  the node; the NVR records.
+- **Prices after the Dec 2025 rises** *[snippet]*: Pi 5 2 GB $55; Pi 4 4 GB
+  $60, 8 GB $85. Pi 4 2 GB assumed $45.
+
+### ESP32-P4, 10-year view
+
+- **Longevity:** "minimum 12 years for all the products listed" *[snippet]*;
+  P4 mass production ~2025 implies ≥2037 (estimate).
+- **ESP-IDF policy** **[fetched]**: each release supported 30 months (12
+  service + 18 maintenance, security fixes only). P4 supported since v5.3.
+  Healthy cadence (v6.1 2026-08-27, v5.3.6 2026-09-16). A camera firmware must
+  be rebased every ~2.5 years to stay patched; hobby projects rarely do.
+- **Hardware H.264 encoder is open**: `esp-h264-component` is Apache-2.0 and
+  the P4 hardware path is C source **[fetched]**. This corrects the first
+  pass, which only saw the older software OpenH264 port.
+- **ISP algorithms are binary**: in `esp-video-components`, `esp_ipa` ships
+  prebuilt archives per IDF major under the non-OSI "Espressif MIT" licence,
+  with only a detect stub in `src/` **[fetched]**. AWB/AE/denoise are blobs
+  tied to IDF versions. Same structural problem as rkaiq, smaller.
+- **RTSP/ONVIF:** the esp-adf request for a P4 RTSP example (Apr 2025) notes
+  the existing implementation "is not open-source"; no staff reply visible.
+  Espressif's `rtsp_demo` in esp-webrtc-solution pulls `esp_media_protocols`
+  and `esp_peer` (ships a `libs` folder) from the registry, WiFi setup only.
+  No Espressif ONVIF example.
+- **Community since Feb 2026:** r4d10n/esp32p4-uvc-video: 19 commits, all
+  between 2026-02-10 and 02-16, **nothing since** (dormant 7 months).
+  ESP32CAM-ONVIF: 137 commits, active to 2026-08-28, Beta, **WiFi-only
+  documented, no Ethernet, no IR-cut, and "H.264 RTP NAL packetization" still
+  in progress** **[fetched]**. One WebRTC demo with 0 stars. That is the whole
+  ecosystem.
+- **PoE boards exist** *[snippets]*: Waveshare ESP32-P4-ETH with PoE module
+  (~$24, camera kit ~$33), Olimex POEv3 add-on, Olimex ESP32-P4-PC (Ethernet
+  with PoE, MIPI CSI, CERN-OHL-S, repo updated 2026-09-09 **[fetched]**).
+  PoE class not verified.
+- **Verdict:** a flash-and-go open P4 camera with PoE, H.264 RTSP/ONVIF and
+  IR-cut control is plausible but on no funded roadmap. Estimate ~40% chance
+  of a maintained turnkey firmware by 2029. **Re-evaluate in 2028.**
+
+### Rockchip RV1106 / Luckfox, 10-year view
+
+- **Mainline:** July 2026 series (Simon Glass) brings clocks, UART, SD/eMMC,
+  SPI flash, GPIO, pinctrl and boots to a rootfs on Pico Mini B; August 2026
+  series adds Ethernet, USB, I2C, DMA, PWM, "under review" *[snippets]*. An
+  independent repo runs 6.18 with "no drivers or SoC function integrated"
+  **[fetched]**. **No ISP or encoder driver upstream**; mainline `rkisp1`
+  targets RK3288/RK3399-class ISPs; the target of the Aug 2026 `rkisp2` series
+  is unverified.
+- **Luckfox SDK:** kernel **5.10.160** **[fetched]**; 5.10 LTS EOL
+  **2026-12-31** **[fetched]**. Cadence: one substantive merge per quarter
+  through Aug 2025, then a 6-month gap to Mar 2026. Company founded 2020,
+  Shenzhen, sells via Waveshare/Amazon *[snippet]*.
+- **OpenIPC on RV1106 is the same architecture as on HiSilicon**: package
+  `rockchip-osdrv-rv11xx` installs `mpp_vcodec.ko`, `rockit.ko`, `librkaiq.so`,
+  `librockchip_mpp.so`, `librockit.so` for 5.10.160 **[fetched]**. Vendor
+  kernel plus ISP/codec blobs, just on 5.10 instead of 3.10.
+- **No IR-cut module verified.** SC3336 modules have no IR-cut (variant A only
+  has pads for a fill-light board). The IMX415-98 IR-CUT camera is listed for
+  Pi and Omni3576; RV1106 compatibility unverified.
+- **Prices** *[snippet]*: Pico Ultra $18 base, +$4 WiFi, +$8 PoE module.
+- **Verdict on "wait for mainline":** boot-level mainline arrives ~2027, but
+  ISP and encoder, the parts a camera needs, have no visible upstream work.
+  A blob-free RV1106 camera before 2029 is unlikely. Plan on 5.10.160 + blobs
+  for the life of the node. Still the cheapest wired node and the youngest
+  vendor kernel among the reflash routes.
+
+### USB UVC IR cameras, 10-year view
+
+- `uvcvideo` is actively maintained in mainline (fixes for v7.0 in Mar 2026,
+  UVC 1.5 quirks 2026) *[snippet]*. Nothing on the camera is ever patched or
+  needs to be.
+- ELP (Shenzhen Ailipu, ~10 years) still lists H.264 IR models at $51 to $69
+  *[snippets]*; stock not verified. **Treat MJPEG as the durable format** and
+  H.264-over-UVC as a bonus that can vanish (Logitech precedent).
+- 100 m USB 2.0 over Cat5e/6 extenders exist (StarTech, INOGENI) but users
+  report intermittent failures and cheap units that only pass low resolutions.
+  Budget ~$40 per active powered extender and expect it to be the least
+  reliable component.
+- Host: bandwidth is not the issue (MJPEG 1080p30 ~40 to 80 Mbps); decode
+  is. Pi 5 has no H.264 hardware decode, so six streams are CPU-bound (~1
+  core per 1080p MJPEG stream, estimate). An N100 with QSV handles it.
+- **Verdict:** the most future-proof software and the lowest maintenance of
+  any route, but the least deployable. Right for 1 to 2 cameras within 5 m of
+  the NVR; wrong for whole-house coverage.
+
+### Failure-mode sources
+
+IR LEDs: 20,000 to 30,000 h before output is too weak (5.7 to 11 years at
+12 h/night); LED-driver electrolytics fail 3 to 4× sooner. Wyze v3: firmware
+"destroying 32 GB SD cards", spontaneous recording stops, 180-day warranty.
+Pi SD: corruption "after a few months" under continuous writes. PoE:
+indoor injectors in outdoor enclosures "usually fail" (enclosure runs 2×
+ambient), voltage sag under load, surge on metal poles. HiSilicon: 60% (2018)
+→ <4% (2021). All *[snippets]*.
+
+### Not verified (section 6)
+
+- Pi OS Trixie release date and the "critical kernel updates only" policy;
+  Camera Module 3 to Jan 2030; any Pi statement on restoring hardware encode;
+  IMX708 lifecycle; measured Pi 5 CPU for 1080p25 software encode.
+- Espressif's P4 end date; whether `esp_media_protocols` is binary (registry
+  blocked; relies on first pass); PoE class of the P4 boards.
+- RV1106 mainline series review state; `rkisp2` target SoC; IMX415-98 IR-CUT
+  compatibility with Pico boards; Luckfox founding year and prices.
+- ELP company age, current H.264 IR models and prices; Logitech C920 story.
+- Axis LTS windows, prices, wattage, warranty.
+- All lifespans, maintenance hours and per-node wattages except the three
+  supplied in the brief.
+
 ## 7. Closed professional cameras: the honest alternative
 
 If longevity of *firmware support* matters more to you than auditability,
@@ -333,9 +556,7 @@ firmware removes.
 - **"Works with Home Assistant"** has one camera partner, Reolink (closed
   firmware, local-capable). There is no "Frigate-certified" programme.
 
-<!-- SECTIONS 6 9 PENDING -->
-
-## Not verified this pass (sections 1, 2, 3, 7, 8)
+## Not verified this pass (sections 1, 2, 3, 7, 8; sections 4 to 6 carry their own lists)
 
 - Espressif per-series years for S3/C6/P4 (page blocked; only "minimum 12
   years" and ESP32 ≥ 2031 confirmed).
