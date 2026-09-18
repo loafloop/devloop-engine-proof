@@ -50,6 +50,48 @@ the camera VLAN with client isolation, per `06-network-isolation.md`.
   one-person beta still finishing RTP packetisation. Buy one later if you want
   to tinker at the frontier; it is not a starter.
 
+## If you go ESP32-P4 anyway: which camera modules fit the Olimex DevKit
+
+Checked 2026-09-18 against the Olimex ESP32-P4-DevKit user manual (rev 2.1,
+from the OLIMEX GitHub repo), Espressif's `esp_cam_sensor` driver list, and
+the r4d10n firmware README.
+
+- **Connector:** the manual says "MIPI-CSI connector follows the standard
+  Raspberry Pi 1, 2, 3, and 4 camera FPC layout. So you can connect standard
+  RPi camera to it." That is the 15-pin 1.0 mm FPC. Olimex's own qualified
+  module is CAMERA-OV5647-5MPIX. Board: ESP32-P4NRW32 (32 MB PSRAM), 16 MB
+  flash, TI TLK110 Ethernet PHY, PoE via the POEv3 add-on (5 V / 3 A).
+- **Sensor support in Espressif's driver:** OV5647 (MIPI and DVP), OV5640,
+  SC2336, GC2053, OV2640/OV3660 (DVP only). **Not supported: IMX219, IMX708,
+  IMX477, IMX462, IMX415.** So a "Raspberry Pi camera clone" works only if it
+  is an OV5647; the v2 (IMX219) and v3 (IMX708) style clones do not.
+- **Proven combination:** r4d10n/esp32p4-uvc-video runs "OV5647 (5MP) via
+  2-lane MIPI CSI at 1920x1080 RAW10 30fps" on this exact board, using
+  Raspberry Pi's open libcamera OV5647 tuning data.
+- **Rules for the cheap AliExpress OV5647 clone listings** (the $5 "130
+  degree" family; the listing page itself is blocked from the research
+  sandbox, so this is by variant type):
+  - Any **lens angle** (72°, 130°, 160°, 175°) and **adjustable focus**: same
+    sensor, works. Above ~130° the fisheye distortion is uncorrected by the
+    P4 ISP; pick 72° to 130° for CCTV.
+  - **NoIR / "night vision" without LEDs:** works, pink daytime colour.
+  - **"Night vision" with the two IR-LED boards:** plugs in, but the LED
+    boards draw their power from the camera's 3.3 V line through the FPC. The
+    Olimex manual does not state a camera-rail current budget. Do not rely on
+    it; leave the LED boards unplugged and use a separate 12 V 850 nm
+    illuminator.
+  - **Motorised IR-cut variants** that switch via their own photoresistor:
+    work with no firmware support. Variants that need a host GPIO to switch
+    the filter will stay in one position unless the firmware drives that pin.
+  - **IMX219 / "8MP" option:** does not work. No driver.
+  - **22-pin (Pi Zero / Pi 5) cable:** wrong connector. Use the 15-pin to
+    15-pin cable; the module end is 15-pin on all of them.
+- **The real limit is firmware, not the connector.** The camera works only
+  with firmware that includes the OV5647 path through `esp_video`: r4d10n's
+  project does; ESP32CAM-ONVIF targets the Function-EV board's SC2336 by
+  default and would need the sensor changed in its config. Expect to tune
+  exposure and white balance yourself.
+
 ## Firmware
 
 Use **[s60sc/ESP32-CAM_MJPEG2SD](https://github.com/s60sc/ESP32-CAM_MJPEG2SD)**
