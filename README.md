@@ -103,6 +103,7 @@ nothing but NVR and NTP traffic). See
 | [docs/04-nvr-software.md](docs/04-nvr-software.md) | 18 NVR/streaming projects, exact licenses, what phones home, detection hardware, three reference stacks |
 | [docs/05-diy-camera-hardware.md](docs/05-diy-camera-hardware.md) | Raspberry Pi (Pi 5 no HW encode), Luckfox RV1106, Milk-V, Sipeed, USB IR cameras |
 | [docs/06-network-isolation.md](docs/06-network-isolation.md) | VLAN pattern, OpenWrt/OPNsense/UniFi rules, WireGuard/Headscale/NetBird, leak tests |
+| [docs/09-platform-comparison.md](docs/09-platform-comparison.md) | Serious open camera platforms ranked, with which of the three layers (kernel, ISP/encoder, streamer) each keeps open |
 | [docs/08-esp32-starter.md](docs/08-esp32-starter.md) | Shopping list for a first ESP32 camera (wired PoE kit or cheapest WiFi kit), what to skip, firmware, first steps |
 | [docs/07-long-term.md](docs/07-long-term.md) | **Second pass.** Production-until dates, regulation, standards, firmware and NVR governance with measured bus factors, detection hardware longevity, DIY routes with a 10-year cost table, ranked verdict |
 
